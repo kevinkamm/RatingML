@@ -18,8 +18,8 @@ import time as timer
 
 from tqdm import tqdm, trange
 
-import brownianMotion as bm
-import loadRatingMatrices as lrm
+import RatingTimeGAN.brownianMotion as bm
+import RatingTimeGAN.loadRatingMatrices as lrm
 
 from pathlib import Path
 import shutil
@@ -29,11 +29,6 @@ from typing import List, Optional
 from numpy.typing import ArrayLike, DTypeLike
 
 # force tensorflow to use CPU, has to be on start-up
-tf.config.set_visible_devices([], 'GPU')
-print(tf.config.experimental.get_synchronous_execution())
-print(tf.config.experimental.list_physical_devices())
-print(tf.config.threading.get_inter_op_parallelism_threads())
-print(tf.config.threading.get_intra_op_parallelism_threads())
 # tf.config.threading.set_inter_op_parallelism_threads(2)
 # tf.config.threading.set_intra_op_parallelism_threads(6)
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -379,7 +374,7 @@ class TimeGAN:
                         step_d_loss = self.train_discriminator(X_, Z_, discriminator_opt)
                     currK = 1
 
-    def sample(self,n_batches: int):
+    def sample(self,BM,T,N,timeIndices ,n_batches: int):
         steps = n_batches // self.batch_size + 1
         data = []
         for _ in trange(steps, desc='Synthetic data generation'):
@@ -437,6 +432,11 @@ class TimeGAN:
 
 
 if __name__ == '__main__':
+    tf.config.set_visible_devices([], 'GPU')
+    print(tf.config.experimental.get_synchronous_execution())
+    print(tf.config.experimental.list_physical_devices())
+    print(tf.config.threading.get_inter_op_parallelism_threads())
+    print(tf.config.threading.get_intra_op_parallelism_threads())
     'Data type for computations'
     # use single precision for GeForce GPUs
     dtype = np.float32
@@ -462,7 +462,7 @@ if __name__ == '__main__':
     T = times[-1] / 12
     timeIndices = bm.getTimeIndex(T, N, times / 12)
     # relative path to rating matrices:
-    filePaths: List[str] = ['SP_' + str(x) + '_month_small' for x in times]
+    filePaths: List[str] = ['../Data/'+'SP_' + str(x) + '_month_small' for x in times]
     # exclude default row, don't change
     # excludeDefaultRow = False
     # permuteTimeSeries, don't change
@@ -498,7 +498,7 @@ if __name__ == '__main__':
     tGAN=TimeGAN(lenSeq, Krows, Kcols, batch_size, dtype=dtype)
     tGAN.trainTimeGAN(dataset,BM,T,N,timeIndices,epochs,loadDir = saveDir)
     tGAN.save(saveDir)
-    samples=tGAN.sample(10)
+    samples=tGAN.sample(BM,T,N,timeIndices, 10)
     print(samples.shape)
     samples=np.reshape(samples,(samples.shape[0],samples.shape[1],Krows,Kcols))
     print(samples.shape)

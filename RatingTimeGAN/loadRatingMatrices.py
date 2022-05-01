@@ -88,7 +88,7 @@ class RML:
 if __name__ == '__main__':
     import time as timer
 
-    filePaths = ['SP_' + str(x) + '_month_small' for x in [1, 3]]
+    filePaths = ['../Data/'+'SP_' + str(x) + '_month_small' for x in [1, 3]]
     rml = RML(filePaths, excludeDefaultRow=True, dtype=np.float32)
     print(rml.filePaths)
     tic = timer.time()
