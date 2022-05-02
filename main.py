@@ -69,14 +69,12 @@ buffer_size = rm_train.shape[0]
 dataset = tf.data.Dataset.from_tensor_slices(rm_train)
 dataset = dataset.shuffle(buffer_size, reshuffle_each_iteration=True).batch(batch_size)
 
-epochs = 1
+epochs = 20
 saveDir = 'RatingTimeGAN/modelParams'
 tGAN = TimeGAN(lenSeq, Krows, Kcols, batch_size, BM, timeIndices, dtype=dtype)
 tGAN.trainTimeGAN(dataset, epochs, loadDir=saveDir)
 tGAN.save(saveDir)
 samples = tGAN.sample(10)
-print(samples.shape)
-samples = np.reshape(samples, (samples.shape[0], samples.shape[1], Krows, Kcols))
 print(samples.shape)
 for wi in range(0, 3):
     print(f'Trajectory {wi}\n')
@@ -84,3 +82,10 @@ for wi in range(0, 3):
         print(f'Time {timeIndices[ti]}')
         print(samples[wi, ti, :, :])
         print(np.sum(samples[wi, ti, :, :], axis=1))
+
+saveCSVDir = 'RatingTimeGAN/CSV'
+print('Save CSV')
+ticCSV=timer.time()
+tGAN.exportToCSV(2,saveCSVDir,ratings = RML.ratings)
+ctimeCSV=timer.time()-ticCSV
+print(f'Elapsed time for saving CSV files: {ctimeCSV} s')

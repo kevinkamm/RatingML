@@ -8,6 +8,7 @@ https://github.com/ydataai/ydata-synthetic/blob/dev/src/ydata_synthetic/synthesi
 """
 import numpy as np
 import tensorflow as tf
+import pandas as pd
 from tensorflow.keras import Model, Sequential, Input
 from tensorflow.keras.layers import GRU, LSTM, Dense
 from tensorflow.keras.losses import BinaryCrossentropy, MeanSquaredError
@@ -377,13 +378,43 @@ class TimeGAN:
                     currK = 1
 
     def sample(self,n_batches: int):
-        steps = n_batches // self.batch_size + 1
         data = []
-        for _ in trange(steps, desc='Synthetic data generation'):
+        for _ in trange(n_batches, desc='Synthetic data generation'):
             Z_ = self.BM.tfW(self.batch_size,timeInd=self.timeInd)
             records = self.generator(Z_)
             data.append(records)
-        return np.array(np.vstack(data))
+        temp=np.array(np.vstack(data))
+        return temp.reshape(temp.shape[0],temp.shape[1],self.Krows,self.Kcols)
+
+    def exportToCSV(self,
+                    n_batches:int,
+                    saveDir : str,
+                    ratings : Optional[List[str]] = None)\
+            -> bool:
+        savePath = Path.cwd() / Path(saveDir + '/' + self.paramString + f'_N{self.BM.N}')
+        if savePath.exists():
+            shutil.rmtree(savePath)
+        savePath.mkdir(parents=True, exist_ok=True)
+        data = []
+        Z = []
+        for _ in trange(n_batches, desc='Synthetic data generation'):
+            Z_ = self.BM.sample(self.batch_size)
+            records = self.generator(tf.convert_to_tensor(Z_[:,self.timeInd]))
+            Z.append(Z_)
+            data.append(records)
+        fakeMatrices = np.array(np.vstack(data))
+        fakeMatrices=fakeMatrices.reshape(fakeMatrices.shape[0], fakeMatrices.shape[1], self.Krows, self.Kcols)
+        W = np.array(np.vstack(Z)).T
+        t = np.linspace(0,self.BM.T,self.BM.N,endpoint=True).reshape(-1,1)
+        for wi in range(0,W.shape[1]):
+            dfW = pd.DataFrame(data=np.concatenate((t,W[:,wi].reshape(-1,1)),axis=1),columns=['Time','Brownian Path'])
+            dfW.to_csv(str(savePath)+f'/W_{wi}.csv',sep=';')
+            for ti in range(0,fakeMatrices.shape[1]):
+                dfRM = pd.DataFrame(data=fakeMatrices[wi,ti,:,:],index=ratings,columns=ratings)
+                dfRM.to_csv(str(savePath)+f'/RM_{wi}_{int(np.round(t[self.timeInd[ti]]*12))}.csv',sep=';')
+        shutil.make_archive(str(savePath),'zip',Path.cwd() / Path(saveDir),self.paramString + f'_N{self.BM.N}')
+        shutil.rmtree(savePath)
+        return True
 
     @property
     def paramString(self)\
@@ -499,9 +530,7 @@ if __name__ == '__main__':
     tGAN=TimeGAN(lenSeq, Krows, Kcols, batch_size, BM, timeIndices, dtype=dtype)
     tGAN.trainTimeGAN(dataset,epochs,loadDir = saveDir)
     tGAN.save(saveDir)
-    samples=tGAN.sample(10)
-    print(samples.shape)
-    samples=np.reshape(samples,(samples.shape[0],samples.shape[1],Krows,Kcols))
+    samples=tGAN.sample(1)
     print(samples.shape)
     for wi in range(0,3):
         print(f'Trajectory {wi}\n')
