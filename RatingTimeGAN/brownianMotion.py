@@ -21,18 +21,19 @@ def getTimeIndex(T: float,
 
 class BrownianMotion:
     def __init__(self,
+                 T : float,
+                 N : int,
                  dtype: DTypeLike = np.float64,
                  seed: Optional[int] = None)\
             -> None:
+        self.T = T
+        self.N = N
         self.dtype = dtype
         self.rng = np.random.default_rng(seed)
 
     def sample(self,
-               T: float,
-               N: int,
                M: int,
-               n: Optional[int] = 1,
-               mode: Optional[Union[str, np.ndarray]] = 'all')\
+               timeInd: Optional[np.ndarray] = None)\
             -> np.ndarray:
         """
         Samples 'n' indpendent Brownian motions with 'N' time steps
@@ -40,15 +41,9 @@ class BrownianMotion:
 
         Parameters
         ----------
-        T : float
-            Terminal time for homogeneous time grid starting in zero.
-        N : int
-            Number of time steps.
         M : int
             Number of trajectories.
-        n : Optional[int], optional
-            Number of independent Brownian motions. The default is 1.
-        mode : Optional[Union[str,np.ndarray]], optional
+        timeInd : Optional[Union[str,np.ndarray]], optional
             Decide if you want the whole trajectory (all), only the 
             endpoint (end) or specific time indices given in a numpy array. 
             The default is 'all'.
@@ -57,58 +52,30 @@ class BrownianMotion:
         -------
         Brownian motions
         """
-        dW = np.sqrt(T / (N - 1)) * self.rng.standard_normal((N - 1, M, n)).astype(self.dtype)
-        W = np.zeros((N, M, n), dtype=self.dtype)
-        W[1:, :] = dW
-        if isinstance(mode,str) and mode == 'end':
-            W = np.sum(W, axis=0)
-        elif isinstance(mode,str) and mode == 'all':
-            W = np.cumsum(W, axis=0)
+        dW = np.sqrt(self.T / (self.N - 1)) * self.rng.standard_normal((M,self.N - 1)).astype(self.dtype)
+        W = np.zeros((M,self.N), dtype=self.dtype)
+        W[:,1:] = dW
+        W = np.cumsum(W, axis=1)
+        if isinstance(timeInd,np.ndarray) and timeInd.size>0:
+            return W[:,timeInd]
         else:
-            W = np.cumsum(W, axis=0)
-            W = W[mode, :, :]
-        return W
+            return W
 
     def tfW(self,
-            T: float,
-            N: int,
             M: int,
-            n: Optional[int] = 1,
-            mode: Optional[str] = 'all')\
+            timeInd: Optional[np.ndarray] = None)\
             -> tf.Tensor:
-        return tf.convert_to_tensor(self.sample(T, N, M, n=n, mode=mode))
+        return tf.convert_to_tensor(self.sample(M, timeInd=timeInd))
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
-    # import tensorflow as tf
-    np.random.seed(0)
     T = 1
     N = 1000
     M = 10
-    n = 1
-    BM = BrownianMotion(dtype=np.float32)
-    fig, ax = plt.subplots()
-    W = BM.sample(T, N, M, n)
-    plt.plot(np.linspace(0, T, N, endpoint=True), W[:, 2, 0])
-    # plt.show(block=False)
-    # fig, ax = plt.subplots()
-    # W = BM.sample(T, N, M, n)
-    # plt.plot(np.linspace(0, T, N, endpoint=True), W[:, 2, 0])
-    # plt.show(block=False)
-    # fig, ax = plt.subplots()
-    # W = BM.sample(T, N, M, n)
-    # plt.plot(np.linspace(0, T, N, endpoint=True), W[:, 2, 0])
-    # plt.show(block=False)
-    # ax.axis('off')
-    # ax.spines['top'].set_visible(False)
-    # ax.spines['right'].set_visible(False)
-    # ax.spines['bottom'].set_visible(True)
-    # ax.spines['left'].set_visible(False)
-    # ax.get_yaxis().set_ticks([])
-    # plt.savefig('BrownianPath.pdf')
-    # np.random.seed(0)
-    print(np.squeeze(W[-1, :, :]))
-    print(BM.tfW(T, N, M, n, mode=np.array([0, int(N / 2), N - 1], dtype=np.int64)))
-    # plt.show()
+    timeInd = np.array([0, int(N / 2), N - 1], dtype=np.int64)
+    BM = BrownianMotion(T,N,dtype=np.float32,seed=0)
+    W = BM.sample(M)
+    print(W[:,timeInd])
+    BM = BrownianMotion(T, N, dtype=np.float32, seed=0)
+    print(BM.tfW(M,timeInd=timeInd))
+

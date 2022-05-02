@@ -4,9 +4,9 @@ setup(
     name='RatingML',
     version='0.1',
     packages=['RatingTimeGAN'],
-    url='',
-    license='',
+    url='https://github.com/kevinkamm/RatingML',
+    license='MIT',
     author='kevin',
     author_email='',
-    description=''
+    description='Provides TimeGAN DNN applied to historical Rating Transition Matrices'
 )

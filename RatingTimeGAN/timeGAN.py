@@ -12,18 +12,17 @@ from tensorflow.keras import Model, Sequential, Input
 from tensorflow.keras.layers import GRU, LSTM, Dense
 from tensorflow.keras.losses import BinaryCrossentropy, MeanSquaredError
 from tensorflow.keras.optimizers import Adam
-# from tensorflow import function, GradientTape, sqrt, abs, reduce_mean, ones_like, zeros_like, convert_to_tensor,float32
 
 import time as timer
 
 from tqdm import tqdm, trange
 
+import RatingTimeGAN
 import RatingTimeGAN.brownianMotion as bm
 import RatingTimeGAN.loadRatingMatrices as lrm
 
 from pathlib import Path
 import shutil
-from datetime import datetime
 
 from typing import List, Optional
 from numpy.typing import ArrayLike, DTypeLike
@@ -31,6 +30,7 @@ from numpy.typing import ArrayLike, DTypeLike
 # force tensorflow to use CPU, has to be on start-up
 # tf.config.threading.set_inter_op_parallelism_threads(2)
 # tf.config.threading.set_intra_op_parallelism_threads(6)
+# from datetime import datetime
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
 #                                                       histogram_freq = 1,
@@ -152,7 +152,12 @@ class TimeGAN:
                 Krows: int,
                 Kcols: int,
                 batch_size: int,
+                BM : RatingTimeGAN.BrownianMotion,
+                timeInd : np.ndarray,
                 dtype: DTypeLike = np.float32):
+
+        self.BM = BM
+        self.timeInd = timeInd
 
         self.lenSeq = lenSeq
         self.Krows = Krows
@@ -323,7 +328,7 @@ class TimeGAN:
 
         return discriminator_loss
 
-    def trainTimeGAN(self,dataset,BM,T,N,timeIndices,epochs,loadDir: Optional[str] = ''):
+    def trainTimeGAN(self,dataset,epochs,loadDir: Optional[str] = ''):
         self.epochs = epochs
         if loadDir != '':
             if self.load(loadDir):
@@ -336,12 +341,10 @@ class TimeGAN:
         discriminator_opt = Adam(1e-4)
 
         # train embedder
-
         print('\ntrain autoencoder')
         for _ in tqdm(range(epochs), desc='Autoencoder network training'):
             for step, X_ in enumerate(dataset):
                 step_e_loss_t0 = self.train_autoencoder(X_, autoencoder_opt)
-
 
         # train supervisor
         print('\ntrain supervisor')
@@ -356,8 +359,7 @@ class TimeGAN:
         for _ in tqdm(range(epochs), desc='Joint network training'):
             currK = 1
             for step, X_ in enumerate(dataset):
-                Z_ = tf.transpose(tf.reshape(BM.tfW(T, N, self.batch_size, 1, mode=timeIndices),
-                                             [len(timeIndices), self.batch_size]))
+                Z_ = self.BM.tfW(self.batch_size,timeInd=self.timeInd)
                 if currK <= 2:
 
                     #   Train generator
@@ -374,12 +376,11 @@ class TimeGAN:
                         step_d_loss = self.train_discriminator(X_, Z_, discriminator_opt)
                     currK = 1
 
-    def sample(self,BM,T,N,timeIndices ,n_batches: int):
+    def sample(self,n_batches: int):
         steps = n_batches // self.batch_size + 1
         data = []
         for _ in trange(steps, desc='Synthetic data generation'):
-            Z_ = tf.transpose(tf.reshape(BM.tfW(T, N, self.batch_size, 1, mode=timeIndices),
-                                         [len(timeIndices), self.batch_size]))
+            Z_ = self.BM.tfW(self.batch_size,timeInd=self.timeInd)
             records = self.generator(Z_)
             data.append(records)
         return np.array(np.vstack(data))
@@ -450,17 +451,17 @@ if __name__ == '__main__':
     N = 5 * 12 + 1
     # trajectories of Brownian motion will be equal to batch_size for training
     # M = batch_size = 1
-    # number of independent Brownian motions, takes the role of latent dimension
-    n = 1
-    # Brownian motion class with fixed datatype
-    BM = bm.BrownianMotion(dtype=dtype,seed=seed)
 
     'Load rating matrices'
     # choose between 1,3,6,12 months
     times = np.array([1, 3, 6, 12])
     lenSeq = times.size
     T = times[-1] / 12
+
+    # Brownian motion class with fixed datatype
+    BM = bm.BrownianMotion(T, N, dtype=dtype, seed=seed)
     timeIndices = bm.getTimeIndex(T, N, times / 12)
+
     # relative path to rating matrices:
     filePaths: List[str] = ['../Data/'+'SP_' + str(x) + '_month_small' for x in times]
     # exclude default row, don't change
@@ -495,10 +496,10 @@ if __name__ == '__main__':
 
     epochs=10
     saveDir = 'modelParams'
-    tGAN=TimeGAN(lenSeq, Krows, Kcols, batch_size, dtype=dtype)
-    tGAN.trainTimeGAN(dataset,BM,T,N,timeIndices,epochs,loadDir = saveDir)
+    tGAN=TimeGAN(lenSeq, Krows, Kcols, batch_size, BM, timeIndices, dtype=dtype)
+    tGAN.trainTimeGAN(dataset,epochs,loadDir = saveDir)
     tGAN.save(saveDir)
-    samples=tGAN.sample(BM,T,N,timeIndices, 10)
+    samples=tGAN.sample(10)
     print(samples.shape)
     samples=np.reshape(samples,(samples.shape[0],samples.shape[1],Krows,Kcols))
     print(samples.shape)

@@ -1,6 +1,3 @@
-# from RatingTimeGAN import timeGAN as tg
-# from RatingTimeGAN import loadRatingMatrices as lrm
-# from RatingTimeGAN import brownianMotion as bm
 from RatingTimeGAN import TimeGAN,BrownianMotion,getTimeIndex,RML
 
 import numpy as np
@@ -29,19 +26,19 @@ tf.random.set_seed(seed)
 N = 5 * 12 + 1
 # trajectories of Brownian motion will be equal to batch_size for training
 # M = batch_size = 1
-# number of independent Brownian motions, takes the role of latent dimension
-n = 1
-# Brownian motion class with fixed datatype
-BM = BrownianMotion(dtype=dtype, seed=seed)
 
 'Load rating matrices'
 # choose between 1,3,6,12 months
 times = np.array([1, 3, 6, 12])
 lenSeq = times.size
 T = times[-1] / 12
+
+# Brownian motion class with fixed datatype
+BM = BrownianMotion(T, N, dtype=dtype, seed=seed)
 timeIndices = getTimeIndex(T, N, times / 12)
+
 # relative path to rating matrices:
-filePaths: List[str] = ['Data/' + 'SP_' + str(x) + '_month_small' for x in times]
+filePaths: List[str] = ['Data/'+'SP_' + str(x) + '_month_small' for x in times]
 # exclude default row, don't change
 # excludeDefaultRow = False
 # permuteTimeSeries, don't change
@@ -63,7 +60,7 @@ print(f'Data shape: (Data,Time Seq,From Rating*To Rating)={rm_train.shape}')
 Krows = RML.Krows
 Kcols = RML.Kcols
 # batch size
-batch_size = 512
+batch_size = 128
 
 # buffer size should be greater or equal number of data,
 # is only important if data doesn't fit in RAM
@@ -72,12 +69,12 @@ buffer_size = rm_train.shape[0]
 dataset = tf.data.Dataset.from_tensor_slices(rm_train)
 dataset = dataset.shuffle(buffer_size, reshuffle_each_iteration=True).batch(batch_size)
 
-epochs = 10
+epochs = 1
 saveDir = 'RatingTimeGAN/modelParams'
-tGAN = TimeGAN(lenSeq, Krows, Kcols, batch_size, dtype=dtype)
-tGAN.trainTimeGAN(dataset, BM, T, N, timeIndices, epochs, loadDir=saveDir)
+tGAN = TimeGAN(lenSeq, Krows, Kcols, batch_size, BM, timeIndices, dtype=dtype)
+tGAN.trainTimeGAN(dataset, epochs, loadDir=saveDir)
 tGAN.save(saveDir)
-samples = tGAN.sample(BM,T,N,timeIndices, 10)
+samples = tGAN.sample(10)
 print(samples.shape)
 samples = np.reshape(samples, (samples.shape[0], samples.shape[1], Krows, Kcols))
 print(samples.shape)
