@@ -23,7 +23,8 @@ tf.random.set_seed(seed)
 
 'Parameters for Brownian motion'
 # time steps of Brownian motion, has to be such that mod(N-1,12)=0
-N = 5 * 12 + 1
+# N = 5 * 12 + 1
+N = 30 * 12 + 1
 # trajectories of Brownian motion will be equal to batch_size for training
 # M = batch_size = 1
 
