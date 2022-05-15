@@ -80,9 +80,13 @@ class RML:
             self.data = self.data[:, np.newaxis, :, :]
         if self.vectorizeRatings:
             self.data = np.reshape(self.data,(self.data.shape[0],self.data.shape[1],self.data.shape[2]*self.data.shape[3]))
-    def tfData(self) \
+    def tfData(self,
+               batch_size : Optional[int] = None) \
             -> tf.Tensor:
-        return tf.convert_to_tensor(self.data)
+        if batch_size is None:
+            return tf.convert_to_tensor(self.data)
+        else:
+            return tf.convert_to_tensor(self.data[:(self.data.shape[0]//batch_size)*batch_size,:,:])
 
 
 if __name__ == '__main__':
@@ -98,4 +102,4 @@ if __name__ == '__main__':
     print(rml.data.dtype)
     print(rml.data.shape)
     # print(rml.ratings)
-    print(rml.tfData().dtype)
+    print(rml.tfData(batch_size=512).shape)

@@ -30,9 +30,16 @@ N = 30 * 12 + 1
 
 'Load rating matrices'
 # choose between 1,3,6,12 months
-times = np.array([1, 3, 6, 12])
+# times = np.array([1, 3, 6, 12])
+times = np.array([1, 6, 12, 48])
 lenSeq = times.size
 T = times[-1] / 12
+
+timeSpan : str = ''
+if T<=1:
+    timeSpan = 'shortTerm_' + '_'.join(map(str,times))
+else:
+    timeSpan = 'longTerm_' + '_'.join(map(str,times))
 
 # Brownian motion class with fixed datatype
 BM = BrownianMotion(T, N, dtype=dtype, seed=seed)
@@ -54,24 +61,24 @@ ctimeRML = timer.time() - ticRML
 print(f'Elapsed time for loading data {ctimeRML} s.')
 
 'Build GAN'
-# training data
-rm_train = RML.tfData()
-print(f'Data shape: (Data,Time Seq,From Rating*To Rating)={rm_train.shape}')
 # number of ratings
 Krows = RML.Krows
 Kcols = RML.Kcols
 # batch size
 batch_size = 128
+# training data
+rm_train = RML.tfData()
+print(f'Data shape: (Data,Time Seq,From Rating*To Rating)={rm_train.shape}')
 
 # buffer size should be greater or equal number of data,
 # is only important if data doesn't fit in RAM
 buffer_size = rm_train.shape[0]
 
 dataset = tf.data.Dataset.from_tensor_slices(rm_train)
-dataset = dataset.shuffle(buffer_size, reshuffle_each_iteration=True).batch(batch_size)
+dataset = dataset.shuffle(buffer_size, reshuffle_each_iteration=True).batch(batch_size,drop_remainder=True)
 
-epochs = 20
-saveDir = 'RatingTimeGAN/modelParams'
+epochs = 40
+saveDir = 'RatingTimeGAN/modelParams'+'_'+timeSpan
 tGAN = TimeGAN(lenSeq, Krows, Kcols, batch_size, BM, timeIndices, dtype=dtype)
 tGAN.trainTimeGAN(dataset, epochs, loadDir=saveDir)
 tGAN.save(saveDir)
@@ -84,9 +91,9 @@ for wi in range(0, 3):
         print(samples[wi, ti, :, :])
         print(np.sum(samples[wi, ti, :, :], axis=1))
 
-saveCSVDir = 'RatingTimeGAN/CSV'
-print('Save CSV')
+saveCSVDir = 'RatingTimeGAN/CSV'+'_'+timeSpan
+print('Save CSV_shortTerm_1_3_6_12')
 ticCSV=timer.time()
-tGAN.exportToCSV(2,saveCSVDir,ratings = RML.ratings)
+tGAN.exportToCSV(10,saveCSVDir,ratings = RML.ratings)
 ctimeCSV=timer.time()-ticCSV
-print(f'Elapsed time for saving CSV files: {ctimeCSV} s')
+print(f'Elapsed time for saving CSV_shortTerm_1_3_6_12 files: {ctimeCSV} s')

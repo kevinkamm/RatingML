@@ -489,6 +489,12 @@ if __name__ == '__main__':
     lenSeq = times.size
     T = times[-1] / 12
 
+    timeSpan: str = ''
+    if T <= 1:
+        timeSpan = 'shortTerm_' + '_'.join(map(str, times))
+    else:
+        timeSpan = 'longTerm_' + '_'.join(map(str, times))
+
     # Brownian motion class with fixed datatype
     BM = bm.BrownianMotion(T, N, dtype=dtype, seed=seed)
     timeIndices = bm.getTimeIndex(T, N, times / 12)
@@ -526,7 +532,7 @@ if __name__ == '__main__':
     dataset = dataset.shuffle(buffer_size, reshuffle_each_iteration=True).batch(batch_size)
 
     epochs=10
-    saveDir = 'modelParams'
+    saveDir = 'modelParams' + timeSpan
     tGAN=TimeGAN(lenSeq, Krows, Kcols, batch_size, BM, timeIndices, dtype=dtype)
     tGAN.trainTimeGAN(dataset,epochs,loadDir = saveDir)
     tGAN.save(saveDir)
