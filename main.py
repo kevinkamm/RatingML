@@ -30,8 +30,8 @@ N = 30 * 12 + 1
 
 'Load rating matrices'
 # choose between 1,3,6,12 months
-# times = np.array([1, 3, 6, 12])
-times = np.array([1, 6, 12, 48])
+times = np.array([1, 3, 6, 12])
+# times = np.array([1, 6, 12, 48])
 lenSeq = times.size
 T = times[-1] / 12
 
@@ -94,6 +94,6 @@ for wi in range(0, 3):
 saveCSVDir = 'RatingTimeGAN/CSV'+'_'+timeSpan
 print('Save CSV_shortTerm_1_3_6_12')
 ticCSV=timer.time()
-tGAN.exportToCSV(10,saveCSVDir,ratings = RML.ratings)
+tGAN.exportToCSV(100,saveCSVDir,ratings = RML.ratings)
 ctimeCSV=timer.time()-ticCSV
 print(f'Elapsed time for saving CSV_shortTerm_1_3_6_12 files: {ctimeCSV} s')
