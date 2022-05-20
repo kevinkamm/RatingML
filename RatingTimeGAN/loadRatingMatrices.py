@@ -80,6 +80,52 @@ class RML:
             self.data = self.data[:, np.newaxis, :, :]
         if self.vectorizeRatings:
             self.data = np.reshape(self.data,(self.data.shape[0],self.data.shape[1],self.data.shape[2]*self.data.shape[3]))
+
+    def testRatingProperties(self):
+        if self.vectorizeRatings:
+            data=self.data.reshape(self.data.shape[0],self.data.shape[1],self.Krows,self.Kcols)
+        else:
+            data = self.data
+        mDC = RML.monotoneDefaultColumn(data)
+        sDD = RML.stronglyDiagonalDominant(data)
+        dML = RML.downMoreLikely(data)
+        iRS = RML.increasingRatingSpread(data)
+        print(mDC)
+        print(sDD)
+        print(dML)
+        print(iRS)
+    @staticmethod
+    def monotoneDefaultColumn(data : np.ndarray)\
+            -> np.ndarray:
+        value = np.diff(data[:, :, :, -1],n=1,axis=2)
+        return np.squeeze(np.mean(value>=0,axis=0)).T
+
+    @staticmethod
+    def stronglyDiagonalDominant(data : np.ndarray)\
+            -> np.ndarray:
+        valueDiag = data[:,:,np.arange(0,data.shape[2]),np.arange(0,data.shape[3])]
+        dataTemp = data.copy()
+        dataTemp[:,:,np.arange(0,data.shape[2]),np.arange(0,data.shape[3])]=0
+        valueOffDiag=np.sum(dataTemp,axis=3)
+        return  np.mean(valueDiag-valueOffDiag>0,axis=0)
+
+    @staticmethod
+    def downMoreLikely(data : np.ndarray)\
+            -> np.ndarray:
+        upper = np.triu(data,k=1)
+        lower = np.tril(data,k=-1)
+        upperValue = np.sum(upper,axis=(2,3))
+        lowerValue = np.sum(lower, axis=(2, 3))
+        return np.mean(upperValue-lowerValue>0,axis=0)
+
+    @staticmethod
+    def increasingRatingSpread(data : np.ndarray)\
+            -> np.ndarray:
+        valueDiag = data[:, :, np.arange(0, data.shape[2]), np.arange(0, data.shape[3])]
+        # defaultValue = data[:,:,:,-1]
+        # return np.mean(np.diff(valueDiag-defaultValue,n=1,axis=1)<=0,axis=0)
+        return np.mean(np.diff(valueDiag, n=1, axis=1) <= 0, axis=0).T
+
     def tfData(self,
                batch_size : Optional[int] = None) \
             -> tf.Tensor:
@@ -92,14 +138,15 @@ class RML:
 if __name__ == '__main__':
     import time as timer
 
-    filePaths = ['../Data/'+'SP_' + str(x) + '_month_small' for x in [1, 3]]
-    rml = RML(filePaths, excludeDefaultRow=True, dtype=np.float32)
-    print(rml.filePaths)
+    filePaths = ['../Data/'+'SP_' + str(x) + '_month_small' for x in [1, 3, 6, 12]]
+    rml = RML(filePaths, excludeDefaultRow=False, dtype=np.float32)
+    # print(rml.filePaths)
     tic = timer.time()
     rml.loadData()
     ctime = timer.time() - tic
     print(f'Elapsed time {ctime} s')
-    print(rml.data.dtype)
-    print(rml.data.shape)
-    # print(rml.ratings)
-    print(rml.tfData(batch_size=512).shape)
+    rml.testRatingProperties()
+    # print(rml.data.dtype)
+    # print(rml.data.shape)
+    # # print(rml.ratings)
+    # print(rml.tfData(batch_size=512).shape)
