@@ -1,0 +1,38 @@
+function [mDC,sDD,dML,iRS,rSO]=ratingProperties(R,months)
+    tStr=strsplit(sprintf('t=%1.2g;',months./12.'),';');
+    tStr=tStr(1:end-1);
+    dtStr = cell(1,length(tStr)-1);
+    for ti=1:1:length(dtStr)
+        dtStr{ti}=[tStr{ti},'-',tStr{ti+}]
+    end
+    mDC=monotoneDefaultColumn();
+    sDD=stronglyDiagonalDominant();
+    dML=downMoreLikely();
+    iRS=increasingRatingSpread();
+    rSO=rowSumOne();
+    function mDC=monotoneDefaultColumn()
+        mDC=squeeze(mean(diff(R(:,end,:,:),1,1)>=0,4));
+    end
+    function sDD=stronglyDiagonalDominant()
+        ind=repmat(eye(size(R,1),'logical'),[1 1 size(R,[3,4])]);
+        valueDiag=reshape(R(ind),size(R,[2,3,4]));
+        valueOffDiag=R;
+        valueOffDiag(ind)=0;
+        valueOffDiag=squeeze(sum(valueOffDiag,2));
+        sDD = mean(valueDiag-valueOffDiag>0,3);
+    end
+    function dML=downMoreLikely()
+        indUpper=repmat(triu(ones(size(R,[1,2]),'logical'),1),[1 1 size(R,[3,4])]);
+        indLower=repmat(tril(ones(size(R,[1,2]),'logical'),-1),[1 1 size(R,[3,4])]);
+        d=[(size(R,1)*size(R,2)-size(R,1))/2,size(R,[3,4])];
+        dML=squeeze(mean(sum(reshape(R(indUpper),d),1)-sum(reshape(R(indLower),d),1)>0,3));
+    end
+    function iRS=increasingRatingSpread()
+        ind=repmat(eye(size(R,1),'logical'),[1 1 size(R,[3,4])]);
+        valueDiag=reshape(R(ind),size(R,[2,3,4]));
+        iRS=squeeze(mean(diff(valueDiag,1,2)<=0,3));
+    end
+    function rSO=rowSumOne()
+        rSO=squeeze(mean(sum(R,1),[2,4]));
+    end
+end
